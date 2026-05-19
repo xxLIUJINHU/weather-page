@@ -105,14 +105,18 @@
                 const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FShanghai&forecast_days=7`;
                 
                 const res = await fetch(url);
+                if (!res.ok) throw new Error('网络错误');
+                
                 const data = await res.json();
                 
-                if (!data.current) {
-                    throw new Error('数据获取失败');
-                }
+                if (!data) throw new Error('数据为空');
+                if (!data.current) throw new Error('无实况数据');
+                if (!data.hourly) throw new Error('无小时数据');
+                if (!data.daily) throw new Error('无预报数据');
                 
                 renderWeather(data);
             } catch (error) {
+                console.error(error);
                 currentEl.innerHTML = `<div class="error">获取失败: ${error.message}<br>点击刷新重试</div>`;
             }
         }
