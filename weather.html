@@ -68,39 +68,33 @@
     </div>
 
     <script>
-        const API_KEY = 'a4f456ae8f8f4691b9945e469509dfe0';
-        const LOCATION = '101280607';
-
-        const weatherIcons = {
-            '晴': '☀️', 'CLEAR': '☀️',
-            '多云': '⛅', 'PARTLY_CLOUDY': '⛅',
-            '阴': '☁️', 'CLOUDY': '☁️',
-            '小雨': '🌧️', 'LIGHT': '🌧️',
-            '中雨': '🌧️', 'MODERATE': '🌧️',
-            '大雨': '🌧️', 'HEAVY': '🌧️',
-            '雷阵雨': '⛈️', 'THUNDERSTORM': '⛈️',
-            '阵雨': '🌧️', 'SHOWERS': '🌧️',
-            '雪': '❄️', 'SNOW': '❄️',
-            '雾': '🌫️', 'FOG': '🌫️'
-        };
+        const LAT = '22.56';
+        const LON = '114.25';
 
         function getIcon(code) {
             const map = {
-                '100': '☀️', 'CLEAR': '☀️', 'SUNNY': '☀️',
-                '101': '⛅', '102': '⛅', '103': '⛅',
-                '104': '☁️', 'OVERCAST': '☁️',
-                '200': '🌬️', '201': '🌬️', '202': '🌬️',
-                '300': '🌧️', '301': '🌧️', '302': '🌧️',
-                '303': '🌧️', '304': '🌧️', '305': '🌧️', '306': '🌧️', '307': '🌧️', '308': '🌧️',
-                '309': '🌧️', '310': '🌧️', '311': '🌧️', '312': '🌧️',
-                '400': '🌧️', '401': '🌧️', '402': '🌧️', '403': '🌧️', '404': '🌧️', '405': '🌧️', '406': '🌧️', '407': '🌧️',
-                '500': '🌫️', '501': '🌫️', '502': '🌫️', '503': '🌫️', '504': '🌫️',
-                '900': '⛈️', '901': '⛈️', '902': '⛈️', 'THUNDERSTORM': '⛈️',
-                'LIGHT_RAIN': '🌧️', 'MODERATE_RAIN': '🌧️', 'HEAVY_RAIN': '🌧️',
-                'SHOWERS': '🌧️', 'LIGHT_SNOW': '❄️', 'MODERATE_SNOW': '❄️', 'HEAVY_SNOW': '❄️',
-                'FOG': '🌫️', 'MIST': '🌫️'
+                0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+                45: '🌫️', 48: '🌫️',
+                51: '🌧️', 53: '🌧️', 55: '🌧️',
+                61: '🌧️', 63: '🌧️', 65: '🌧️',
+                71: '❄️', 73: '❄️', 75: '❄️',
+                80: '🌧️', 81: '🌧️', 82: '🌧️',
+                95: '⛈️', 96: '⛈️', 99: '⛈️'
             };
             return map[code] || '🌤️';
+        }
+
+        function getWeatherText(code) {
+            const texts = {
+                0: '晴', 1: '晴间多云', 2: '多云', 3: '阴',
+                45: '雾', 48: '雾',
+                51: '小毛毛雨', 53: '中毛毛雨', 55: '大毛毛雨',
+                61: '小雨', 63: '中雨', 65: '大雨',
+                71: '小雪', 73: '中雪', 75: '大雪',
+                80: '小阵雨', 81: '中阵雨', 82: '大阵雨',
+                95: '雷暴', 96: '雷暴', 99: '雷暴'
+            };
+            return texts[code] || '未知';
         }
 
         async function fetchWeather() {
@@ -108,55 +102,49 @@
             currentEl.innerHTML = '<div class="loading">加载中...</div>';
             
             try {
-                const urls = [
-                    `https://devapi.qweather.com/v7/weather/now?location=${LOCATION}&key=${API_KEY}`,
-                    `https://devapi.qweather.com/v7/weather/7d?location=${LOCATION}&key=${API_KEY}`
-                ];
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FShanghai&forecast_days=7`;
                 
-                const [nowRes, dailyRes] = await Promise.all(urls.map(url => fetch(url)));
-                const nowData = await nowRes.json();
-                const dailyData = await dailyRes.json();
+                const res = await fetch(url);
+                const data = await res.json();
                 
-                if (nowData.code !== '200') {
-                    throw new Error(nowData.msg || 'API错误');
+                if (!data.current) {
+                    throw new Error('数据获取失败');
                 }
                 
-                renderWeather(nowData, dailyData);
+                renderWeather(data);
             } catch (error) {
                 currentEl.innerHTML = `<div class="error">获取失败: ${error.message}<br>点击刷新重试</div>`;
             }
         }
 
-        function renderWeather(nowData, dailyData) {
-            const now = nowData.now;
-            const dailyList = dailyData.daily;
-            const updateTime = new Date(nowData.loc).toLocaleString('zh-CN');
+        function renderWeather(data) {
+            const now = data.current;
+            const hourly = data.hourly;
+            const daily = data.daily;
+            const nowTime = new Date().toLocaleString('zh-CN');
             
-            document.getElementById('updateTime').textContent = `更新时间: ${updateTime}`;
+            document.getElementById('updateTime').textContent = `更新时间: ${nowTime}`;
             
             document.getElementById('current').innerHTML = `
-                <div class="current-temp">${now.temp}°C</div>
-                <div class="current-weather">${getIcon(now.icon)} ${now.text}</div>
+                <div class="current-temp">${Math.round(now.temperature_2m)}°C</div>
+                <div class="current-weather">${getIcon(now.weather_code)} ${getWeatherText(now.weather_code)}</div>
                 <div class="current-detail">
-                    <span>💧 湿度 ${now.humidity}%</span>
-                    <span>🌬️ ${now.windDir} ${now.windScale}级</span>
+                    <span>💧 湿度 ${now.relative_humidity_2m}%</span>
+                    <span>🌬️ 风速 ${Math.round(now.wind_speed_10m)}km/h</span>
                 </div>
             `;
             
-            const hourlyList = [
-                { time: '现在', icon: now.icon, temp: now.temp },
-                { time: '1时', icon: dailyList[0].iconNight, temp: dailyList[0].tempMin },
-                { time: '2时', icon: dailyList[0].iconNight, temp: dailyList[0].tempMin },
-                { time: '3时', icon: dailyList[0].iconNight, temp: dailyList[0].tempMin },
-                { time: '4时', icon: dailyList[0].iconNight, temp: dailyList[0].tempMin },
-                { time: '5时', icon: dailyList[0].iconNight, temp: dailyList[0].tempMin },
-                { time: '6时', icon: dailyList[0].iconNight, temp: dailyList[0].tempMin },
-                { time: '7时', icon: dailyList[0].iconDay, temp: dailyList[0].tempMin },
-                { time: '8时', icon: dailyList[0].iconDay, temp: dailyList[0].tempMin + 1 },
-                { time: '9时', icon: dailyList[0].iconDay, temp: dailyList[0].tempMin + 2 },
-                { time: '10时', icon: dailyList[0].iconDay, temp: Math.round((dailyList[0].tempMin + dailyList[0].tempMax) / 2) },
-                { time: '11时', icon: dailyList[0].iconDay, temp: dailyList[0].tempMax - 1 }
-            ];
+            const currentHour = new Date().getHours();
+            const hourlyList = [];
+            for (let i = 0; i < 12; i++) {
+                const idx = currentHour + i;
+                hourlyList.push({
+                    time: i === 0 ? '现在' : `${(currentHour + i) % 24}时`,
+                    icon: hourly.weather_code[idx],
+                    temp: Math.round(hourly.temperature_2m[idx])
+                });
+            }
+            
             document.getElementById('hourly').innerHTML = hourlyList.map(item => `
                 <div class="hourly-item">
                     <div class="hourly-time">${item.time}</div>
@@ -166,16 +154,17 @@
             `).join('');
             
             const dateNames = ['今天', '明天', '后天', '周四', '周五', '周六', '周日'];
-            document.getElementById('daily').innerHTML = dailyList.slice(0, 7).map((item, i) => `
+            document.getElementById('daily').innerHTML = daily.time.map((date, i) => `
                 <div class="daily-item">
-                    <div class="daily-date">${dateNames[i] || item.date.slice(5)}</div>
-                    <div class="daily-weather">${getIcon(item.iconDay)} ${item.textDay}</div>
-                    <div class="daily-temp">${item.tempMin}° / ${item.tempMax}°</div>
+                    <div class="daily-date">${dateNames[i] || date.slice(5)}</div>
+                    <div class="daily-weather">${getIcon(daily.weather_code[i])} ${getWeatherText(daily.weather_code[i])}</div>
+                    <div class="daily-temp">${Math.round(daily.temperature_2m_min[i])}° / ${Math.round(daily.temperature_2m_max[i])}°</div>
                 </div>
             `).join('');
             
+            const temp = Math.round(now.temperature_2m);
             const indices = [
-                { name: '穿衣', value: parseInt(now.now.temperature) >= 26 ? '炎热' : '舒适' },
+                { name: '穿衣', value: temp >= 28 ? '炎热' : temp >= 20 ? '舒适' : '较凉' },
                 { name: '感冒', value: '较易' },
                 { name: '运动', value: '适宜' },
                 { name: '洗车', value: '适宜' },
