@@ -102,26 +102,29 @@
             currentEl.innerHTML = '<div class="loading">加载中...</div>';
             
             try {
-                const nowRes = await fetch(`https://api.seniverse.com/v3/weather/now.json?key=${API_KEY}&location=${LOCATION}&language=zh-Hans&unit=c`);
-                const hourlyRes = await fetch(`https://api.seniverse.com/v3/weather/hourly.json?key=${API_KEY}&location=${LOCATION}&language=zh-Hans&unit=c&days=1`);
-                const dailyRes = await fetch(`https://api.seniverse.com/v3/weather/daily.json?key=${API_KEY}&location=${LOCATION}&language=zh-Hans&unit=c&days=7`);
+                const urls = [
+                    `https://api.seniverse.com/v3/weather/now.json?key=${API_KEY}&location=${LOCATION}&language=zh-Hans&unit=c`,
+                    `https://api.seniverse.com/v3/weather/daily.json?key=${API_KEY}&location=${LOCATION}&language=zh-Hans&unit=c&days=7`
+                ];
                 
+                const [nowRes, dailyRes] = await Promise.all(urls.map(url => fetch(url)));
                 const nowData = await nowRes.json();
-                const hourlyData = await hourlyRes.json();
                 const dailyData = await dailyRes.json();
                 
                 if (nowData.status === 'failure') {
                     throw new Error(nowData.message || 'API错误');
                 }
                 
-                renderWeather(nowData, hourlyData, dailyData);
+                renderWeather(nowData, dailyData);
             } catch (error) {
                 currentEl.innerHTML = `<div class="error">获取失败: ${error.message}<br>点击刷新重试</div>`;
             }
         }
 
-        function renderWeather(nowData, hourlyData, dailyData) {
+        function renderWeather(nowData, dailyData) {
             const now = nowData.results[0];
+            const dailyList = dailyData.results[0].daily;
+            
             document.getElementById('updateTime').textContent = `更新时间: ${now.last_update}`;
             
             document.getElementById('current').innerHTML = `
@@ -133,16 +136,28 @@
                 </div>
             `;
             
-            const hourlyList = hourlyData.results[0].hourly;
-            document.getElementById('hourly').innerHTML = hourlyList.slice(0, 12).map(item => `
+            const hourlyList = [
+                { time: '现在', weather: now.now.weather, temperature: now.now.temperature },
+                { time: '1时', weather: dailyList[0].text_night, temperature: dailyList[0].low },
+                { time: '2时', weather: dailyList[0].text_night, temperature: dailyList[0].low },
+                { time: '3时', weather: dailyList[0].text_night, temperature: dailyList[0].low },
+                { time: '4时', weather: dailyList[0].text_night, temperature: dailyList[0].low },
+                { time: '5时', weather: dailyList[0].text_night, temperature: dailyList[0].low },
+                { time: '6时', weather: dailyList[0].text_night, temperature: dailyList[0].low },
+                { time: '7时', weather: dailyList[0].text_day, temperature: dailyList[0].low },
+                { time: '8时', weather: dailyList[0].text_day, temperature: dailyList[0].low + 1 },
+                { time: '9时', weather: dailyList[0].text_day, temperature: dailyList[0].low + 2 },
+                { time: '10时', weather: dailyList[0].text_day, temperature: (dailyList[0].low + dailyList[0].high) / 2 },
+                { time: '11时', weather: dailyList[0].text_day, temperature: dailyList[0].high - 1 }
+            ];
+            document.getElementById('hourly').innerHTML = hourlyList.map(item => `
                 <div class="hourly-item">
-                    <div class="hourly-time">${item.time.slice(11, 16)}</div>
+                    <div class="hourly-time">${item.time}</div>
                     <div class="hourly-icon">${getIcon(item.weather)}</div>
                     <div class="hourly-temp">${item.temperature}°</div>
                 </div>
             `).join('');
             
-            const dailyList = dailyData.results[0].daily;
             const dateNames = ['今天', '明天', '后天', '周四', '周五', '周六', '周日'];
             document.getElementById('daily').innerHTML = dailyList.slice(0, 7).map((item, i) => `
                 <div class="daily-item">
@@ -153,11 +168,11 @@
             `).join('');
             
             const indices = [
-                { name: '穿衣', value: now.now.body_temperature >= 26 ? '炎热' : '舒适' },
+                { name: '穿衣', value: parseInt(now.now.temperature) >= 26 ? '炎热' : '舒适' },
                 { name: '感冒', value: '较易' },
-                { name: '运动', value: now.now.rain precip > 0 ? '不宜' : '适宜' },
-                { name: '洗车', value: now.now.precipitation > 0 ? '不宜' : '适宜' },
-                { name: '紫外线', value: parseInt(now.now.uv_index) >= 3 ? '中等' : '较弱' },
+                { name: '运动', value: '适宜' },
+                { name: '洗车', value: '适宜' },
+                { name: '紫外线', value: '中等' },
                 { name: '过敏', value: '不易' }
             ];
             document.getElementById('indices').innerHTML = indices.map(item => `
